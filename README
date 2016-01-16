@@ -1,0 +1,48 @@
+This is a bash script that makes heavy use of the Linux dig utility to look up all of the authorized nameservers on a domain name, 
+then queries each server directly for any record types supported by dig (a aaaa mx soa srv etc.).  
+
+The output of each server is compared against the others for any inconsistencies.  The script makes heavy use of text coloring to 
+make problem identification easy, but this needs to be enabled in the options in the head of the script file.  
+
+The script accepts any number of domain names and record types in any order as parameters.  As the script is not optimized to do 
+simultaneous dig queries, so the more parameters that you enter, the more painfully slow it becomes.
+
+--
+
+Usage:
+bash fi.sh example1.com example2.com a mx cname srv txt
+
+It is useful to setup an alias like f or fish in your .bashrc or simply rename fi.sh to fish or whatever and stick it in your bin
+or other directory listed in your $PATH
+
+--
+
+Lookup procedure:
+
+Parsing the arguments - Any arguments passed that do not match a regular expression as being a valid domain name are assumed to be
+record types.  This means you can pass arguments in any order or any number.  Multiple domain names are supported, but not usually
+recommended as it can be very slow and spammy.
+
+dig +trace - Any domain names found will first trigger a dig +trace.  The authorized nameservers are recovered from this output.
+
+Direct dns server queries - Each server is then queried using the `dig @ns1.example.com example1.com record` syntax.
+
+Output comparison - Results are sorted, then compared in sequence of return using bash string equivalence conditions.  The string
+comparisons are done case-insensitive as there are rare cases where DNS records are the exact same, but entered differently on
+the different nameservers.  If the server's records match the previous service, it 'agrees' with it in green (assuming color
+is enabled) and disagrees in red.  In the case of a disagreement, both the first and second records are printed.  This potentially
+can display the records from all nameservers, but if all is good, you only see the output from a single server.
+
+Enabling color can be done by editing your copy of the script.  There is a true/false variable near the top of the script to enable it.
+
+Colors can be customized using the variables listed at the top of the script as well.
+
+Known bugs:
+
+The biggest issue is more of a problem with intuition rather than a coding bug.  When requesting a CNAME record, it is often assumed
+that all records (ie. www.example.com ftp.example.com) are returned.  This is incorrect.  There is no easy way to retrieve all records
+of a specific type for a domain name.  Instead you must request each subdomain exactly to check if it has a record.  If you ask the
+right question, you will get the right answer.
+
+There is also an issue with SOA records.  Currently, if you specify the record type "SOA" and it's on a sub-domain, you aren't likely
+to get a result.  It's best to do SOA lookups on the raw domain name, not on any subdomains.
